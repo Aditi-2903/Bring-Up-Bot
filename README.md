@@ -6,9 +6,7 @@ Board bring-up costs engineers days of reading datasheets and logs to chase a wr
 
 ## Demo
 
-Video: [TBD]
-
-Console screenshot: [TBD]
+Video: https://youtu.be/KUl6i8HdIaE
 
 ## What it does
 
@@ -53,7 +51,7 @@ The loop, every run:
 | gage_range | fixed_and_verified | 13 | 53,783 |
 | wrong_address | fixed_and_verified | 17 | 88,404 |
 | no_wait | fixed_and_verified | 13 | 30,599 |
-| Reruns | [TBD] | [TBD] | [TBD] |
+| Nov 4 rerun after hardening: gage_range | fixed_and_verified | 18 | 110,064 |
 
 Muse Spark Open caught overreaching claims in all 3 runs and the agent corrected itself before finishing.
 
