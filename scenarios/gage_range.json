@@ -1,0 +1,9 @@
+{
+  "i2c_bus": 1,
+  "i2c_address": "0x28",
+  "pressure_min_bar": 0.0,
+  "pressure_max_bar": 1.0,
+  "output_min_counts": 1677722,
+  "output_max_counts": 15099494,
+  "conversion_wait_ms": 10
+}

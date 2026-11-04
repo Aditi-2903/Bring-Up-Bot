@@ -1,0 +1,336 @@
+{
+ "task": "The pressure app shows a busy warning and readings like -1.25 bar and -50 C. Find and fix the cause.",
+ "driver": "muse-spark-1.3",
+ "reviewer": "meta-models/muse-spark-open-1026",
+ "started": "2026-11-03 13:31:38",
+ "status": "done",
+ "turns": [
+  {
+   "turn": 1,
+   "action": "set_checklist",
+   "thought": "Start with inspection plan for busy and bad readings.",
+   "step": {
+    "thought": "Start with inspection plan for busy and bad readings.",
+    "action": "set_checklist",
+    "items": [
+     "capture app warning and readings",
+     "check configured I2C address and bus state",
+     "verify wiring/power and device presence",
+     "confirm datasheet status bits and read sequence"
+    ]
+   },
+   "observations": [
+    "Checklist set: capture app warning and readings; check configured I2C address and bus state; verify wiring/power and device presence; confirm datasheet status bits and read sequence"
+   ]
+  },
+  {
+   "turn": 2,
+   "action": "run",
+   "thought": "Inspect config then app output.",
+   "step": {
+    "thought": "Inspect config then app output.",
+    "action": "run",
+    "command": "cat ~/abp2_app/config.json"
+   },
+   "observations": [
+    "[obs-1] $ cat ~/abp2_app/config.json\n{\n  \"i2c_bus\": 1,\n  \"i2c_address\": \"0x28\",\n  \"pressure_min_bar\": -1.0,\n  \"pressure_max_bar\": 1.0,\n  \"output_min_counts\": 1677722,\n  \"output_max_counts\": 15099494,\n  \"conversion_wait_ms\": 0\n}"
+   ]
+  },
+  {
+   "turn": 3,
+   "action": "run",
+   "thought": "Config seen; now capture app behavior.",
+   "step": {
+    "thought": "Config seen; now capture app behavior.",
+    "action": "run",
+    "command": "python3 ~/abp2_app/read_pressure.py"
+   },
+   "observations": [
+    "[obs-2] $ python3 ~/abp2_app/read_pressure.py\nWARNING: sensor busy (status=0x60); data may be stale\npressure=-1.2500 bar temperature=-50.00 C status=0x60 raw_counts=0"
+   ]
+  },
+  {
+   "turn": 4,
+   "action": "run",
+   "thought": "Check bus for device presence at configured address.",
+   "step": {
+    "thought": "Check bus for device presence at configured address.",
+    "action": "run",
+    "command": "/usr/sbin/i2cdetect -y 1"
+   },
+   "observations": [
+    "[obs-3] $ /usr/sbin/i2cdetect -y 1\n0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f\n00:                         -- -- -- -- -- -- -- -- \n10: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- \n20: -- -- -- -- -- -- -- -- 28 -- -- -- -- -- -- -- \n30: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- \n40: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- \n50: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- \n60: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- \n70: -- -- -- -- -- -- -- --"
+   ]
+  },
+  {
+   "turn": 5,
+   "action": "search_datasheet",
+   "thought": "Device present; need datasheet for status and timing.",
+   "step": {
+    "thought": "Device present; need datasheet for status and timing.",
+    "action": "search_datasheet",
+    "query": "ABP2 status busy bit stale data"
+   },
+   "observations": [
+    "[ds-p27]\n27\nSensing and Internet of Things\nBASIC BOARD MOUNT PRESSURE SENSORS, ABP2 SERIES\n6 .5  I2C Status Byte (See Table 20 .)\nTABLE 20. I2C STATUS BYTE EXPLANATION\nBIT (MEANING) STATUS COMMENT\n7 always 0 \u2014\n6 (Power indication) 1 = device is powered0 = device is not powered \u2014\n5 (Busy flag) 1 = device is busy\nIndicates that the data for the last command is not yet \navailable. No new commands are processed if the device is \nbusy. \n4 always 0 \u2014\n3 always 0 \u2014\n2 (Memory integrity/error flag) 0 = integrity test passed1 = integrity test failed Indicates whether the checksum-based integrity check passed or failed; the memory error status bit is calculated only during the power-up sequence.\n1 always 0 \u2014\n0 (Math saturation) 1 = internal math saturation has occurred \u2014\n6 .6 I 2C Communications\n6 .6 .1 I 2C Output Measurement Command\nTo communicate with the ABP2 Series I2C output sensor using an Output Measurement Command of \u201c0xAA\u201d, followed by \u201c0x00\u201d \n\u201c0x00\u201d, follow the steps shown in Table 21. This command will cause the device to exit Standby Mode and enter Operating Mode. \nAt the conclusion of the measurement cycle, the device will automatically re-enter Standby Mode.\nTABLE 21. I2C OUTPUT  MEASUREMENT COMMAND\nSTEP ACTION NOTES\n1 \nS SensorAddr A0C ommand A AP\nWrite bit\n7-bit\nCmdData\n<15:8> A CmdData<7:0>\n2\nOption 1: Wait until the busy flag in \nthe Status Byte clears.\nS SensorAddr A1 Status N P\nRead bit\n7-bit\nOption 2: Wait for at \nleast 5 ms for the data \nconversion to occur.   \nOption 3: Wa\n\n[ds-p31]\n31\nSensing and Internet of Things\nBASIC BOARD MOUNT PRESSURE SENSORS, ABP2 SERIES\n7 .4  SPI Status Byte\nThe SPI status byte contains the bits shown in Table 24. \nTABLE 24. SPI STATUS BYTE EXPLANATION\nBIT (MEANING) STATUS COMMENT\n7 always 0 \u2014\n6 (Power indication) 1 = device is powered0 = device is not powered \u2014\n5 (Busy flag) 1 = device is busy\nIndicates that the data for the last command is not yet \navailable. No new commands are processed if the device is \nbusy. \n4 always 0 \u2014\n3 always 0 \u2014\n2 (Memory integrity/error flag) 0 = integrity test passed1 = integrity test failed Indicates whether the checksum-based integrity check passed or failed; the memory error status bit is calculated only during the power-up sequence.\n1 always 0 \u2014\n0 (Math saturation) 1 = internal math saturation has occurred \u2014\n7 .5 SPI Communication \nTo communicate with the ABP2 Series SPI output sensor using an Output Measurement Command of \u201c0xAA\u201d, followed by \u201c0x00\u201d \n\u201c0x00\u201d, follow the steps shown in Table 25. This command will cause the device to exit Standby Mode and enter Operating Mode. At \nthe conclusion of the measurement cycle, the device will automatically re-enter Standby Mode.\nTABLE 25. SPI OUTPUT MEASUREMENT COMMAND\nSTEP ACTION NOTES\n1 \nThe data on MISO depend on the preceding command. Discard the data on the MISO line. \nMaster to Sensor\nSensor to Master\n   \u2022    NOP Command is  \u201c0xF0\u201d.\n2\nOption 1: Wait until the busy flag in the Status Byte  clears. Option 2: Wait for at least 5 ms for the data conv"
+   ]
+  },
+  {
+   "turn": 6,
+   "action": "record_fact",
+   "thought": "Record app warning evidence.",
+   "step": {
+    "thought": "Record app warning evidence.",
+    "action": "record_fact",
+    "item": "capture app warning and readings",
+    "source": "obs-2",
+    "quote": "WARNING: sensor busy (status=0x60); data may be stale",
+    "claim": "app reports busy warning with status 0x60 and stale data"
+   },
+   "observations": [
+    "Fact recorded for 'capture app warning and readings' from obs-2."
+   ]
+  },
+  {
+   "turn": 7,
+   "action": "record_fact",
+   "thought": "Record configured address and wait time.",
+   "step": {
+    "thought": "Record configured address and wait time.",
+    "action": "record_fact",
+    "item": "check configured I2C address and bus state",
+    "source": "obs-1",
+    "quote": "\"conversion_wait_ms\": 0",
+    "claim": "app configured with zero conversion wait"
+   },
+   "observations": [
+    "Fact recorded for 'check configured I2C address and bus state' from obs-1."
+   ]
+  },
+  {
+   "turn": 8,
+   "action": "record_fact",
+   "thought": "Record I2C device presence at 0x28.",
+   "step": {
+    "thought": "Record I2C device presence at 0x28.",
+    "action": "record_fact",
+    "item": "verify wiring/power and device presence",
+    "source": "obs-3",
+    "quote": "20: -- -- -- -- -- -- -- -- 28 -- -- -- -- -- -- --",
+    "claim": "sensor detected at I2C address 0x28"
+   },
+   "observations": [
+    "Fact recorded for 'verify wiring/power and device presence' from obs-3."
+   ]
+  },
+  {
+   "turn": 9,
+   "action": "record_fact",
+   "thought": "Need datasheet grounding for busy and wait before fix.",
+   "step": {
+    "thought": "Need datasheet grounding for busy and wait before fix.",
+    "action": "record_fact",
+    "item": "confirm datasheet status bits and read sequence",
+    "source": "ds-p27",
+    "quote": "5 (Busy flag) 1 = device is busy",
+    "claim": "busy flag set means device is busy and data not yet available, must wait for conversion"
+   },
+   "observations": [
+    "Fact recorded for 'confirm datasheet status bits and read sequence' from ds-p27."
+   ]
+  },
+  {
+   "turn": 10,
+   "action": "apply_fix",
+   "thought": "Zero wait violates 5ms conversion; fix wait.",
+   "step": {
+    "thought": "Zero wait violates 5ms conversion; fix wait.",
+    "action": "apply_fix",
+    "key": "conversion_wait_ms",
+    "value": 5
+   },
+   "observations": [
+    "Fix applied: conversion_wait_ms = 5 (backup saved).\n[obs-6] Independent test:\nstatus=0x40 pressure_counts=8403516 pressure=+0.0022 bar temperature=21.05 C\nPASS  powered (status bit 6 = 1)\nPASS  not busy (status bit 5 = 0)\nPASS  memory integrity OK (status bit 2 = 0)\nPASS  no math saturation (status bit 0 = 0)\nPASS  pressure ~0 bar at room air (within +/-0.03 bar)\nPASS  temperature plausible (5 to 45 C)\nRESULT: PASS\nApp output:\npressure=-1.2500 bar temperature=-50.00 C status=0x40 raw_counts=0\nVERIFICATION: FAIL"
+   ]
+  },
+  {
+   "turn": 11,
+   "action": "search_datasheet",
+   "thought": "Busy cleared but app raw still zero; need transfer and read details.",
+   "step": {
+    "thought": "Busy cleared but app raw still zero; need transfer and read details.",
+    "action": "search_datasheet",
+    "query": "ABP2 transfer function output min max counts pressure calculation"
+   },
+   "observations": [
+    "[ds-p34]\n34\nSensing and Internet of Things\nBASIC BOARD MOUNT PRESSURE SENSORS, ABP2 SERIES\n8 .0  ABP2 SERIES CALCULATIONS\n8 .1 Pressure Output\nThe ABP2 Series sensor pressure output may be expressed by the transfer function of the device as shown in Equation 1: \nEquation 1: Pressure Sensor Transfer Function \nRearranging this equation to solve for Pressure provides Equation 2: \nEquation 2: Pressure Output Function \nWhere: \n Output max. = output at maximum pressure [counts] \n Output min. = output at minimum pressure [counts] \n P max. = maximum value of pressure range [bar, psi, kPa, etc.] \n P min. = minimum value of pressure range [bar, psi, kPa, etc.] \n Pressure = pressure reading [bar, psi, kPa, etc.] \n Output = digital pressure reading [counts] \nExample: Calculate the pressure for a -1 psi to 1 psi gage sensor with a 10 to 90 calibration, and a pressure output of 14260634 \n(decimal) counts: \nOutputmax. = 15099494 counts (90 of 224 counts or 0xE66666) \nOutputmin. = 1677722 counts (10 of 224 counts or 0x19999A) \nPmax. = 1 psi \nPmin. = -1 psi \nPressure = calculated pressure in psi \nOutput = 14260634 counts \n(14260634 - 1677722) * (1 - ( - 1)) + (-1)\n15099494 - 1677722\nPressure  =   ( (\n25165824 + (-1)\n13421772 \nPressure =   ( (\nOutputmax. - Outputmin.\nPmax. - Pmin.  Output =  *  (Pressure - Pmin.)  + Outputmin.                              \n(Output - Outputmin.) + Pmin.\nOutputmax. - Outputmin.  Pressure =    * (Pmax.- Pmin.)\nPressure = 0.875 psi   \n\n[ds-p33]\n33\nSensing and Internet of Things\nBASIC BOARD MOUNT PRESSURE SENSORS, ABP2 SERIES\n#include<Arduino.h> \n#include<SPI.h> \n \ndouble press_counts = 0; // digital pressure reading [counts] \ndouble temp_counts = 0; // digital temperature reading [counts] \ndouble pressure = 0; // pressure reading [bar, psi, kPa, etc.] \ndouble temperature = 0; // temperature reading in deg C \ndouble outputmax = 15099494; // output at maximum pressure [counts] \ndouble outputmin = 1677722; // output at minimum pressure [counts] \ndouble pmax = 1; // maximum value of pressure range [bar, psi, kPa, etc.] \ndouble pmin = 0; // minimum value of pressure range [bar, psi, kPa, etc.] \ndouble percentage = 0; // holds percentage of full scale data \nchar printBuffer[200], cBuff[20], percBuff[20], pBuff[20], tBuff[20]; \nvoid setup() { \n  Serial.begin(9600); \n  while (!Serial) { \n    delay(10); \n  } \n  sprintf(printBuffer, \"\\nStatus Register, 24-bit Sensor data, Digital Pressure Counts,\\ \n  Percentage of full scale pressure,Pressure Output, Temperature\\n\"); \n  Serial.println(printBuffer); \n  SPI.begin(); \n  pinMode(10, OUTPUT); // pin 10 as SS \n  digitalWrite(10, HIGH); // set SS High \n} \nvoid loop() { \n  delay(1); \n  while (1) { \n    uint8_t data[7] = {0xFA, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}; // holds output data \n    uint8_t cmd[3] = {0xAA, 0x00, 0x00}; // command to be sent \n    SPI.beginTransaction(SPISettings(200000, MSBFIRST, SPI_MODE0)); //SPI at 200kHz \n    digitalWrite(10, LOW); // set SS Low \n    SPI.tra"
+   ]
+  },
+  {
+   "turn": 12,
+   "action": "search_datasheet",
+   "thought": "Independent PASS but app still zero; need range and temp equations.",
+   "step": {
+    "thought": "Independent PASS but app still zero; need range and temp equations.",
+    "action": "search_datasheet",
+    "query": "ABP2 ordering code pressure range 001BD differential"
+   },
+   "observations": [
+    "[ds-p9]\n9\nSensing and Internet of Things\nBASIC BOARD MOUNT PRESSURE SENSORS, ABP2 SERIES\nFIGURE 6 . APB2 SERIES SENSORS AND BREAKOUT BOARDS\nSELECT ABP2 SERIES SENSORS MOUNTED ON BREAKOUT BOARDS\nBreakout boards, with or without the sensor premounted (see Figure 6 and Tables 9, 10, and 11) are designed for use with the \nHoneywell SEB Sensor Evaluation Kit.\nTABLE 9. ORDER GUIDE FOR ABP2 SERIES SENSORS AND BREAKOUT BOARDS\nCATALOG LISTING DESCRIPTION\nABP2MRRN004ND2B3BB\nABP2 Series sensor with SMT package, plastic dual radial barbed ports, same side pressure port, \ndry gases only, no diagnostics, \u00b14 inH2O differential pressure range, I2C address 0x28, 30% to \n70% of 224 counts digital transfer function, 3.3 Vdc supply premounted on breakout board \nABP2MDAN004ND2B3BB\nABP2 Series sensor with SMT package, plastic dual axial barbed ports same side, dry gases only, \nno diagnostics, \u00b14 inH2O differential pressure range, I2C address 0x28, 30% to 70% of 224 counts \ndigital transfer function, 3.3 Vdc supply premounted on breakout board \nABP2MVNT400MG2A3BB\nABP2 Series sensor with leaded SMT package, metal single axial tapered pressure port, liquid \nmedia, food-grade silicone gel, no diagnostics, 400 mbar gage pressure range, I2C address 0x28, \n10% to 90% of 224 counts digital transfer function, 3.3 Vdc supply premounted on breakout board\nABP2LANT001PG2A3BB\nABP2 Series sensor with leadless SMT package, plastic single axial barbed pressure port, liquid \nmedia, food-grade silicone gel, no diagnostics, \n\n[ds-p16]\n16\nSensing and Internet of Things\nBASIC BOARD MOUNT PRESSURE SENSORS, ABP2 SERIES\nTABLE 17. PRESSURE RANGE SPECIFICATIONS: \u00b130 PSI TO \u00b1175 PSI FOR PRODUCT OPTION \"G\" ONLY\nPRESSURE \nRANGE\nPRESSURE \nRANGE\nUNIT\nOVERPRESSURE1 BURST PRESSURE 2\nCOMMON3\nMODE\nPRESSURE\nTOTAL ERROR BAND 4\n(%FSS)\nTYPICAL\nOFFSET \nSHIFT \nWITH \nREFLOW \n(%FSS)\nLONG-TERM \nSTABILITY\n(1000 HR)\n(%FSS)\nTRANSFER\nFUNCTION\nPMIN . PMAX  .\nPORT 1 \n(P1)\nPORT 2 \n(P2)\nPORT 1 \n(P1)\nPORT 2 \n(P2) MODE\n-20\u00b0C\nTO\n85\u00b0C\n-40\u00b0C\nTO  \n110\u00b0C\nDifferential\n030PD -30 30 psi 240 \u2014 375 \u2014 240 \u00b12.0 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.5 A\n060PD -60 60 psi 240 \u2014 375 \u2014 240 \u00b12.0 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.5 A\nGage\n060PG 0 60 psi 240 \u2014 375 \u2014 \u2014 \u00b12.0 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.5 A\n100PG 0 100 psi 240 \u2014 375 \u2014 \u2014 \u00b12.0 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.5 A\n150PG 0 150 psi 240 \u2014 375 \u2014 \u2014 \u00b12.0 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.5 A\n175PG 0 175 psi 240 \u2014 375 \u2014 \u2014 \u00b12.0 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.5 A\n1 Overpressure: The maximum pressure which may safely be applied to the product for it to remain in specification once pressure is returned to the \noperating pressure range. Exposure to higher pressures may cause permanent damage to the product. Unless otherwise specified, this applies \nto all available pressure ports at any temperature within the operating temperature range.\n2 Burst Pressure: The maximum pressure that may be applied to any port of the product without causing escape of pressure media. The product \nshould not be expected to function after exposure to any pressure beyond the burst pressure.\n3 Common Mode Pressure: The maxi"
+   ]
+  },
+  {
+   "turn": 13,
+   "action": "set_checklist",
+   "thought": "App still zero after wait fix; need to expand checks.",
+   "step": {
+    "thought": "App still zero after wait fix; need to expand checks.",
+    "action": "set_checklist",
+    "items": [
+     "decode part number range and transfer",
+     "verify output min/max and pressure min/max",
+     "confirm measurement command and byte parsing",
+     "confirm temperature conversion"
+    ]
+   },
+   "observations": [
+    "Checklist set: decode part number range and transfer; verify output min/max and pressure min/max; confirm measurement command and byte parsing; confirm temperature conversion"
+   ]
+  },
+  {
+   "turn": 14,
+   "action": "search_datasheet",
+   "thought": "Need temp and range details for second fault.",
+   "step": {
+    "thought": "Need temp and range details for second fault.",
+    "action": "search_datasheet",
+    "query": "ABP2 temperature output calculation"
+   },
+   "observations": [
+    "[ds-p33]\n33\nSensing and Internet of Things\nBASIC BOARD MOUNT PRESSURE SENSORS, ABP2 SERIES\n#include<Arduino.h> \n#include<SPI.h> \n \ndouble press_counts = 0; // digital pressure reading [counts] \ndouble temp_counts = 0; // digital temperature reading [counts] \ndouble pressure = 0; // pressure reading [bar, psi, kPa, etc.] \ndouble temperature = 0; // temperature reading in deg C \ndouble outputmax = 15099494; // output at maximum pressure [counts] \ndouble outputmin = 1677722; // output at minimum pressure [counts] \ndouble pmax = 1; // maximum value of pressure range [bar, psi, kPa, etc.] \ndouble pmin = 0; // minimum value of pressure range [bar, psi, kPa, etc.] \ndouble percentage = 0; // holds percentage of full scale data \nchar printBuffer[200], cBuff[20], percBuff[20], pBuff[20], tBuff[20]; \nvoid setup() { \n  Serial.begin(9600); \n  while (!Serial) { \n    delay(10); \n  } \n  sprintf(printBuffer, \"\\nStatus Register, 24-bit Sensor data, Digital Pressure Counts,\\ \n  Percentage of full scale pressure,Pressure Output, Temperature\\n\"); \n  Serial.println(printBuffer); \n  SPI.begin(); \n  pinMode(10, OUTPUT); // pin 10 as SS \n  digitalWrite(10, HIGH); // set SS High \n} \nvoid loop() { \n  delay(1); \n  while (1) { \n    uint8_t data[7] = {0xFA, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}; // holds output data \n    uint8_t cmd[3] = {0xAA, 0x00, 0x00}; // command to be sent \n    SPI.beginTransaction(SPISettings(200000, MSBFIRST, SPI_MODE0)); //SPI at 200kHz \n    digitalWrite(10, LOW); // set SS Low \n    SPI.tra\n\n[ds-p29]\n29\nSensing and Internet of Things\nBASIC BOARD MOUNT PRESSURE SENSORS, ABP2 SERIES\n6 .8  Reference Code (Arduino/Genuino Uno) for I2C Interface\nSee also Section 8.0 for details and examples of ABP2 Series Pressure and Temperature output calculations.\n#include<Arduino.h> \n#include<Wire.h> \n \nuint8_t id = 0x28; // i2c address \nuint8_t data[7]; // holds output data \nuint8_t cmd[3] = {0xAA, 0x00, 0x00}; // command to be sent \ndouble press_counts = 0; // digital pressure reading [counts] \ndouble temp_counts = 0; // digital temperature reading [counts] \ndouble pressure = 0; // pressure reading [bar, psi, kPa, etc.] \ndouble temperature = 0; // temperature reading in deg C \ndouble outputmax = 15099494; // output at maximum pressure [counts] \ndouble outputmin = 1677722; // output at minimum pressure [counts] \ndouble pmax = 1; // maximum value of pressure range [bar, psi, kPa, etc.] \ndouble pmin = 0; // minimum value of pressure range [bar, psi, kPa, etc.] \ndouble percentage = 0; // holds percentage of full scale data \nchar printBuffer[200], cBuff[20], percBuff[20], pBuff[20], tBuff[20]; \nvoid setup() { \n  Serial.begin(9600); \n  while (!Serial) { \n    delay(10); \n  } \n  Wire.begin(); \n  sprintf(printBuffer, \"\\nStatus Register, 24 - bit Sensor data, Digital Pressure Counts,\\ \n           Percentage of full scale pressure, Pressure Output, Temperature\\n\"); \n  Serial.println(printBuffer); \n} \nvoid loop() { \n  Wire.beginTransmission(id); \n  int stat = Wire.write (cmd, 3); // write command to"
+   ]
+  },
+  {
+   "turn": 15,
+   "action": "search_datasheet",
+   "thought": "Need part-number pressure range decoding.",
+   "step": {
+    "thought": "Need part-number pressure range decoding.",
+    "action": "search_datasheet",
+    "query": "ABP2 001B pressure range bar differential transfer function"
+   },
+   "observations": [
+    "[ds-p8]\n8\nSensing and Internet of Things\nBASIC BOARD MOUNT PRESSURE SENSORS, ABP2 SERIES\nFIGURE 5 . NOMENCLATURE AND ORDER GUIDE\nFuture\nXX \n ABP2     D     AN     T     001BA     2     A     3     XX\nProduct Series\nPackage\nPressure Port1\nDIP\nABP2   Ampli\ufb01ed Basic\nProduct Option2,3 \nSMT\nNN\nLeadless SMT\nAN\nVN\nSingle axial \nbarbed port\nSingle axial \nbarbless port\nNo portNN\nAN\nVN\nSingle axial \nbarbed port\nSingle axial \nbarbless port\nNo portNN\nAN\nVN\nSingle axial \nbarbed port\nSingle axial \nbarbless port\nNo port Output Type\nSupply Voltage\nFor example, ABP2DANT001BA2A3XX de\ufb01nes an ABP2 Series Ampli\ufb01ed Basic Pressure Sensor, DIP package, plastic single axial\nbarbed pressure port, liquid media, food-grade silicone gel, no diagnostics, 1 bar absolute pressure range, digital I\n2\nC, address\n0x28 output type, 10% to 90% of 2\n24\n counts (digital) transfer function, 3.3 Vdc supply voltage.\nPressure Range\n2 Product Option \u201cN\u201d is only available with gage pressure ranges 10 mbar to 40 mbar | 1kPa to 4 kPa | 4 inH2O to 20 inH2O, \u00b16 mbar to \u00b125 mbar | \u00b11 kPa to\u00b1 2.5 kPa | \u00b12 inH2O to \u00b110 inH2O.\n\u00b12 inH20 to \u00b1175 psi\u00b16 mbar to \u00b112 bar\nDifferentialDifferential\nGage\n002ND \n004ND \n005ND \n010ND \n020ND\n030ND\n001PD\n005PD\n015PD\n030PD\n060PD\n \n \nGage\n006MD \n010MD \n016MD \n025MD \n040MD  \n060MD \n100MD \n160MD   \n250MD   \n400MD\n600MD\n001BD\n1.6BD\n2.5BD\n004BD\n010MG\n016MG\n025MG\n040MG\n060MG\n100MG\n160MG\n250MG \n400MG\n600MG \n001BG\n1.6BG\n2.5BG\n004BG\n006BG\n008BG\n010BG\n012BG \n\u00b16 mbar\n\u00b110 mbar\n\u00b116 mbar\n\u00b125 mbar\n\u00b140 mbar\n\u00b160 mbar\n\u00b1\n\n[ds-p11]\n11\nSensing and Internet of Things\nBASIC BOARD MOUNT PRESSURE SENSORS, ABP2 SERIES\nTABLE 12. PRESSURE RANGE SPECIFICATIONS: \u00b16 MBAR TO \u00b112 BAR FOR PRODUCT OPTIONS \"N\" AND \"T\" ONLY\nPRESSURE \nRANGE\nPRESSURE \nRANGE\nUNIT\nOVERPRESSURE1 BURST PRESSURE 2 TOTAL ERROR BAND3\n(%FSS)\nTYPICAL \nOFFSET \nSHIFT WITH \nREFLOW \n(%FSS)\nLONG-TERM \nSTABILITY\n(1000 HR)\n(%FSS)\nTRANSFER\nFUNCTION\nPMIN . PMAX  .\nPORT 1 \n(P1)\nPORT 2 \n(P2)\nPORT 1 \n(P1)\nPORT 2 \n(P2)\n0\u00b0C\n TO\n 50\u00b0C\n-20\u00b0C\nTO\n85\u00b0C\n-40\u00b0C\nTO  \n110\u00b0C\nAbsolute\n001BA 0 1 bar 16 \u2014 25 NA \u00b11.5 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.2 A\n1.6BA 0 1.6 bar 16 \u2014 25 NA \u00b11.5 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.2 A\n2.5BA 0 2.5 bar 16 \u2014 25 NA \u00b11.5 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.2 A\nDifferential\n006MD -6 6 mbar 700 700 7000 1000 \u00b12.0 \u00b13.5 \u2014 \u00b11.0 \u00b10.3 B\n010MD -10 10 mbar 700 700 7000 1000 \u00b12.0 \u00b13.5 \u2014 \u00b11.0 \u00b10.3 B\n016MD -16 16 mbar 700 700 7000 1000 \u00b12.0 \u00b13.5 \u2014 \u00b11.0 \u00b10.3 A\n025MD -25 25 mbar 700 700 7000 1000 \u00b12.0 \u00b13.5 \u2014 \u00b11.0 \u00b10.3 A\n040MD -40 40 mbar 2000 1000 7000 2000 \u00b11.5 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.2 A\n060MD -60 60 mbar 2000 1000 7000 2000 \u00b11.5 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.2 A\n100MD -100 100 mbar 2000 1000 7000 2000 \u00b11.5 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.2 A\n160MD -160 160 mbar 2000 1000 7000 2000 \u00b11.5 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.2 A\n250MD -250 250 mbar 16000 \u2014 25000 \u2014 \u00b11.5 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.2 A\n400MD -400 400 mbar 16000 \u2014 25000 \u2014 \u00b11.5 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.2 A\n600MD -600 600 mbar 16000 \u2014 25000 \u2014 \u00b11.5 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.2 A\n001BD -1 1 bar 16 \u2014 25 \u2014 \u00b11.5 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.2 A\n1.6BD -1.6 1.6 bar 16 \u2014 25 \u2014 \u00b11.5 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.2 A\n2.5BD -2.5 2.5 bar 16 \u2014 25 \u2014 \u00b11.5 \u00b1"
+   ]
+  },
+  {
+   "turn": 16,
+   "action": "search_datasheet",
+   "thought": "Verify transfer function A percentages.",
+   "step": {
+    "thought": "Verify transfer function A percentages.",
+    "action": "search_datasheet",
+    "query": "transfer function A 10% 90% output min max"
+   },
+   "observations": [
+    "[ds-p34]\n34\nSensing and Internet of Things\nBASIC BOARD MOUNT PRESSURE SENSORS, ABP2 SERIES\n8 .0  ABP2 SERIES CALCULATIONS\n8 .1 Pressure Output\nThe ABP2 Series sensor pressure output may be expressed by the transfer function of the device as shown in Equation 1: \nEquation 1: Pressure Sensor Transfer Function \nRearranging this equation to solve for Pressure provides Equation 2: \nEquation 2: Pressure Output Function \nWhere: \n Output max. = output at maximum pressure [counts] \n Output min. = output at minimum pressure [counts] \n P max. = maximum value of pressure range [bar, psi, kPa, etc.] \n P min. = minimum value of pressure range [bar, psi, kPa, etc.] \n Pressure = pressure reading [bar, psi, kPa, etc.] \n Output = digital pressure reading [counts] \nExample: Calculate the pressure for a -1 psi to 1 psi gage sensor with a 10 to 90 calibration, and a pressure output of 14260634 \n(decimal) counts: \nOutputmax. = 15099494 counts (90 of 224 counts or 0xE66666) \nOutputmin. = 1677722 counts (10 of 224 counts or 0x19999A) \nPmax. = 1 psi \nPmin. = -1 psi \nPressure = calculated pressure in psi \nOutput = 14260634 counts \n(14260634 - 1677722) * (1 - ( - 1)) + (-1)\n15099494 - 1677722\nPressure  =   ( (\n25165824 + (-1)\n13421772 \nPressure =   ( (\nOutputmax. - Outputmin.\nPmax. - Pmin.  Output =  *  (Pressure - Pmin.)  + Outputmin.                              \n(Output - Outputmin.) + Pmin.\nOutputmax. - Outputmin.  Pressure =    * (Pmax.- Pmin.)\nPressure = 0.875 psi   \n\n[ds-p33]\n33\nSensing and Internet of Things\nBASIC BOARD MOUNT PRESSURE SENSORS, ABP2 SERIES\n#include<Arduino.h> \n#include<SPI.h> \n \ndouble press_counts = 0; // digital pressure reading [counts] \ndouble temp_counts = 0; // digital temperature reading [counts] \ndouble pressure = 0; // pressure reading [bar, psi, kPa, etc.] \ndouble temperature = 0; // temperature reading in deg C \ndouble outputmax = 15099494; // output at maximum pressure [counts] \ndouble outputmin = 1677722; // output at minimum pressure [counts] \ndouble pmax = 1; // maximum value of pressure range [bar, psi, kPa, etc.] \ndouble pmin = 0; // minimum value of pressure range [bar, psi, kPa, etc.] \ndouble percentage = 0; // holds percentage of full scale data \nchar printBuffer[200], cBuff[20], percBuff[20], pBuff[20], tBuff[20]; \nvoid setup() { \n  Serial.begin(9600); \n  while (!Serial) { \n    delay(10); \n  } \n  sprintf(printBuffer, \"\\nStatus Register, 24-bit Sensor data, Digital Pressure Counts,\\ \n  Percentage of full scale pressure,Pressure Output, Temperature\\n\"); \n  Serial.println(printBuffer); \n  SPI.begin(); \n  pinMode(10, OUTPUT); // pin 10 as SS \n  digitalWrite(10, HIGH); // set SS High \n} \nvoid loop() { \n  delay(1); \n  while (1) { \n    uint8_t data[7] = {0xFA, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}; // holds output data \n    uint8_t cmd[3] = {0xAA, 0x00, 0x00}; // command to be sent \n    SPI.beginTransaction(SPISettings(200000, MSBFIRST, SPI_MODE0)); //SPI at 200kHz \n    digitalWrite(10, LOW); // set SS Low \n    SPI.tra"
+   ]
+  },
+  {
+   "turn": 17,
+   "action": "search_datasheet",
+   "thought": "Need temp equation to explain -50C.",
+   "step": {
+    "thought": "Need temp equation to explain -50C.",
+    "action": "search_datasheet",
+    "query": "temperature counts calculation degrees C"
+   },
+   "observations": [
+    "[ds-p33]\n33\nSensing and Internet of Things\nBASIC BOARD MOUNT PRESSURE SENSORS, ABP2 SERIES\n#include<Arduino.h> \n#include<SPI.h> \n \ndouble press_counts = 0; // digital pressure reading [counts] \ndouble temp_counts = 0; // digital temperature reading [counts] \ndouble pressure = 0; // pressure reading [bar, psi, kPa, etc.] \ndouble temperature = 0; // temperature reading in deg C \ndouble outputmax = 15099494; // output at maximum pressure [counts] \ndouble outputmin = 1677722; // output at minimum pressure [counts] \ndouble pmax = 1; // maximum value of pressure range [bar, psi, kPa, etc.] \ndouble pmin = 0; // minimum value of pressure range [bar, psi, kPa, etc.] \ndouble percentage = 0; // holds percentage of full scale data \nchar printBuffer[200], cBuff[20], percBuff[20], pBuff[20], tBuff[20]; \nvoid setup() { \n  Serial.begin(9600); \n  while (!Serial) { \n    delay(10); \n  } \n  sprintf(printBuffer, \"\\nStatus Register, 24-bit Sensor data, Digital Pressure Counts,\\ \n  Percentage of full scale pressure,Pressure Output, Temperature\\n\"); \n  Serial.println(printBuffer); \n  SPI.begin(); \n  pinMode(10, OUTPUT); // pin 10 as SS \n  digitalWrite(10, HIGH); // set SS High \n} \nvoid loop() { \n  delay(1); \n  while (1) { \n    uint8_t data[7] = {0xFA, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}; // holds output data \n    uint8_t cmd[3] = {0xAA, 0x00, 0x00}; // command to be sent \n    SPI.beginTransaction(SPISettings(200000, MSBFIRST, SPI_MODE0)); //SPI at 200kHz \n    digitalWrite(10, LOW); // set SS Low \n    SPI.tra\n\n[ds-p29]\n29\nSensing and Internet of Things\nBASIC BOARD MOUNT PRESSURE SENSORS, ABP2 SERIES\n6 .8  Reference Code (Arduino/Genuino Uno) for I2C Interface\nSee also Section 8.0 for details and examples of ABP2 Series Pressure and Temperature output calculations.\n#include<Arduino.h> \n#include<Wire.h> \n \nuint8_t id = 0x28; // i2c address \nuint8_t data[7]; // holds output data \nuint8_t cmd[3] = {0xAA, 0x00, 0x00}; // command to be sent \ndouble press_counts = 0; // digital pressure reading [counts] \ndouble temp_counts = 0; // digital temperature reading [counts] \ndouble pressure = 0; // pressure reading [bar, psi, kPa, etc.] \ndouble temperature = 0; // temperature reading in deg C \ndouble outputmax = 15099494; // output at maximum pressure [counts] \ndouble outputmin = 1677722; // output at minimum pressure [counts] \ndouble pmax = 1; // maximum value of pressure range [bar, psi, kPa, etc.] \ndouble pmin = 0; // minimum value of pressure range [bar, psi, kPa, etc.] \ndouble percentage = 0; // holds percentage of full scale data \nchar printBuffer[200], cBuff[20], percBuff[20], pBuff[20], tBuff[20]; \nvoid setup() { \n  Serial.begin(9600); \n  while (!Serial) { \n    delay(10); \n  } \n  Wire.begin(); \n  sprintf(printBuffer, \"\\nStatus Register, 24 - bit Sensor data, Digital Pressure Counts,\\ \n           Percentage of full scale pressure, Pressure Output, Temperature\\n\"); \n  Serial.println(printBuffer); \n} \nvoid loop() { \n  Wire.beginTransmission(id); \n  int stat = Wire.write (cmd, 3); // write command to"
+   ]
+  },
+  {
+   "turn": 18,
+   "action": "run",
+   "thought": "Re-read config after first fix to see current state.",
+   "step": {
+    "thought": "Re-read config after first fix to see current state.",
+    "action": "run",
+    "command": "cat ~/abp2_app/config.json"
+   },
+   "observations": [
+    "[obs-14] $ cat ~/abp2_app/config.json\n{\n  \"i2c_bus\": 1,\n  \"i2c_address\": \"0x28\",\n  \"pressure_min_bar\": -1.0,\n  \"pressure_max_bar\": 1.0,\n  \"output_min_counts\": 1677722,\n  \"output_max_counts\": 15099494,\n  \"conversion_wait_ms\": 5\n}"
+   ]
+  },
+  {
+   "turn": 19,
+   "action": "search_datasheet",
+   "thought": "Need I2C read byte order to explain zero raw.",
+   "step": {
+    "thought": "Need I2C read byte order to explain zero raw.",
+    "action": "search_datasheet",
+    "query": "I2C read 7 bytes status pressure temperature data"
+   },
+   "observations": [
+    "[ds-p29]\n29\nSensing and Internet of Things\nBASIC BOARD MOUNT PRESSURE SENSORS, ABP2 SERIES\n6 .8  Reference Code (Arduino/Genuino Uno) for I2C Interface\nSee also Section 8.0 for details and examples of ABP2 Series Pressure and Temperature output calculations.\n#include<Arduino.h> \n#include<Wire.h> \n \nuint8_t id = 0x28; // i2c address \nuint8_t data[7]; // holds output data \nuint8_t cmd[3] = {0xAA, 0x00, 0x00}; // command to be sent \ndouble press_counts = 0; // digital pressure reading [counts] \ndouble temp_counts = 0; // digital temperature reading [counts] \ndouble pressure = 0; // pressure reading [bar, psi, kPa, etc.] \ndouble temperature = 0; // temperature reading in deg C \ndouble outputmax = 15099494; // output at maximum pressure [counts] \ndouble outputmin = 1677722; // output at minimum pressure [counts] \ndouble pmax = 1; // maximum value of pressure range [bar, psi, kPa, etc.] \ndouble pmin = 0; // minimum value of pressure range [bar, psi, kPa, etc.] \ndouble percentage = 0; // holds percentage of full scale data \nchar printBuffer[200], cBuff[20], percBuff[20], pBuff[20], tBuff[20]; \nvoid setup() { \n  Serial.begin(9600); \n  while (!Serial) { \n    delay(10); \n  } \n  Wire.begin(); \n  sprintf(printBuffer, \"\\nStatus Register, 24 - bit Sensor data, Digital Pressure Counts,\\ \n           Percentage of full scale pressure, Pressure Output, Temperature\\n\"); \n  Serial.println(printBuffer); \n} \nvoid loop() { \n  Wire.beginTransmission(id); \n  int stat = Wire.write (cmd, 3); // write command to\n\n[ds-p33]\n33\nSensing and Internet of Things\nBASIC BOARD MOUNT PRESSURE SENSORS, ABP2 SERIES\n#include<Arduino.h> \n#include<SPI.h> \n \ndouble press_counts = 0; // digital pressure reading [counts] \ndouble temp_counts = 0; // digital temperature reading [counts] \ndouble pressure = 0; // pressure reading [bar, psi, kPa, etc.] \ndouble temperature = 0; // temperature reading in deg C \ndouble outputmax = 15099494; // output at maximum pressure [counts] \ndouble outputmin = 1677722; // output at minimum pressure [counts] \ndouble pmax = 1; // maximum value of pressure range [bar, psi, kPa, etc.] \ndouble pmin = 0; // minimum value of pressure range [bar, psi, kPa, etc.] \ndouble percentage = 0; // holds percentage of full scale data \nchar printBuffer[200], cBuff[20], percBuff[20], pBuff[20], tBuff[20]; \nvoid setup() { \n  Serial.begin(9600); \n  while (!Serial) { \n    delay(10); \n  } \n  sprintf(printBuffer, \"\\nStatus Register, 24-bit Sensor data, Digital Pressure Counts,\\ \n  Percentage of full scale pressure,Pressure Output, Temperature\\n\"); \n  Serial.println(printBuffer); \n  SPI.begin(); \n  pinMode(10, OUTPUT); // pin 10 as SS \n  digitalWrite(10, HIGH); // set SS High \n} \nvoid loop() { \n  delay(1); \n  while (1) { \n    uint8_t data[7] = {0xFA, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}; // holds output data \n    uint8_t cmd[3] = {0xAA, 0x00, 0x00}; // command to be sent \n    SPI.beginTransaction(SPISettings(200000, MSBFIRST, SPI_MODE0)); //SPI at 200kHz \n    digitalWrite(10, LOW); // set SS Low \n    SPI.tra"
+   ]
+  },
+  {
+   "turn": 20,
+   "action": "search_datasheet",
+   "thought": "Need full I2C read sequence and temp equation.",
+   "step": {
+    "thought": "Need full I2C read sequence and temp equation.",
+    "action": "search_datasheet",
+    "query": "I2C data read status pressure temperature bytes"
+   },
+   "observations": [
+    "[ds-p29]\n29\nSensing and Internet of Things\nBASIC BOARD MOUNT PRESSURE SENSORS, ABP2 SERIES\n6 .8  Reference Code (Arduino/Genuino Uno) for I2C Interface\nSee also Section 8.0 for details and examples of ABP2 Series Pressure and Temperature output calculations.\n#include<Arduino.h> \n#include<Wire.h> \n \nuint8_t id = 0x28; // i2c address \nuint8_t data[7]; // holds output data \nuint8_t cmd[3] = {0xAA, 0x00, 0x00}; // command to be sent \ndouble press_counts = 0; // digital pressure reading [counts] \ndouble temp_counts = 0; // digital temperature reading [counts] \ndouble pressure = 0; // pressure reading [bar, psi, kPa, etc.] \ndouble temperature = 0; // temperature reading in deg C \ndouble outputmax = 15099494; // output at maximum pressure [counts] \ndouble outputmin = 1677722; // output at minimum pressure [counts] \ndouble pmax = 1; // maximum value of pressure range [bar, psi, kPa, etc.] \ndouble pmin = 0; // minimum value of pressure range [bar, psi, kPa, etc.] \ndouble percentage = 0; // holds percentage of full scale data \nchar printBuffer[200], cBuff[20], percBuff[20], pBuff[20], tBuff[20]; \nvoid setup() { \n  Serial.begin(9600); \n  while (!Serial) { \n    delay(10); \n  } \n  Wire.begin(); \n  sprintf(printBuffer, \"\\nStatus Register, 24 - bit Sensor data, Digital Pressure Counts,\\ \n           Percentage of full scale pressure, Pressure Output, Temperature\\n\"); \n  Serial.println(printBuffer); \n} \nvoid loop() { \n  Wire.beginTransmission(id); \n  int stat = Wire.write (cmd, 3); // write command to\n\n[ds-p33]\n33\nSensing and Internet of Things\nBASIC BOARD MOUNT PRESSURE SENSORS, ABP2 SERIES\n#include<Arduino.h> \n#include<SPI.h> \n \ndouble press_counts = 0; // digital pressure reading [counts] \ndouble temp_counts = 0; // digital temperature reading [counts] \ndouble pressure = 0; // pressure reading [bar, psi, kPa, etc.] \ndouble temperature = 0; // temperature reading in deg C \ndouble outputmax = 15099494; // output at maximum pressure [counts] \ndouble outputmin = 1677722; // output at minimum pressure [counts] \ndouble pmax = 1; // maximum value of pressure range [bar, psi, kPa, etc.] \ndouble pmin = 0; // minimum value of pressure range [bar, psi, kPa, etc.] \ndouble percentage = 0; // holds percentage of full scale data \nchar printBuffer[200], cBuff[20], percBuff[20], pBuff[20], tBuff[20]; \nvoid setup() { \n  Serial.begin(9600); \n  while (!Serial) { \n    delay(10); \n  } \n  sprintf(printBuffer, \"\\nStatus Register, 24-bit Sensor data, Digital Pressure Counts,\\ \n  Percentage of full scale pressure,Pressure Output, Temperature\\n\"); \n  Serial.println(printBuffer); \n  SPI.begin(); \n  pinMode(10, OUTPUT); // pin 10 as SS \n  digitalWrite(10, HIGH); // set SS High \n} \nvoid loop() { \n  delay(1); \n  while (1) { \n    uint8_t data[7] = {0xFA, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}; // holds output data \n    uint8_t cmd[3] = {0xAA, 0x00, 0x00}; // command to be sent \n    SPI.beginTransaction(SPISettings(200000, MSBFIRST, SPI_MODE0)); //SPI at 200kHz \n    digitalWrite(10, LOW); // set SS Low \n    SPI.tra"
+   ]
+  }
+ ],
+ "checklist": [
+  "decode part number range and transfer",
+  "verify output min/max and pressure min/max",
+  "confirm measurement command and byte parsing",
+  "confirm temperature conversion"
+ ],
+ "facts": [
+  {
+   "thought": "Record app warning evidence.",
+   "action": "record_fact",
+   "item": "capture app warning and readings",
+   "source": "obs-2",
+   "quote": "WARNING: sensor busy (status=0x60); data may be stale",
+   "claim": "app reports busy warning with status 0x60 and stale data"
+  },
+  {
+   "thought": "Record configured address and wait time.",
+   "action": "record_fact",
+   "item": "check configured I2C address and bus state",
+   "source": "obs-1",
+   "quote": "\"conversion_wait_ms\": 0",
+   "claim": "app configured with zero conversion wait"
+  },
+  {
+   "thought": "Record I2C device presence at 0x28.",
+   "action": "record_fact",
+   "item": "verify wiring/power and device presence",
+   "source": "obs-3",
+   "quote": "20: -- -- -- -- -- -- -- -- 28 -- -- -- -- -- -- --",
+   "claim": "sensor detected at I2C address 0x28"
+  },
+  {
+   "thought": "Need datasheet grounding for busy and wait before fix.",
+   "action": "record_fact",
+   "item": "confirm datasheet status bits and read sequence",
+   "source": "ds-p27",
+   "quote": "5 (Busy flag) 1 = device is busy",
+   "claim": "busy flag set means device is busy and data not yet available, must wait for conversion"
+  }
+ ],
+ "tokens": 103257,
+ "result": "turn_limit",
+ "turn_count": 20,
+ "refusals": 0
+}

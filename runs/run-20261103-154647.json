@@ -1,0 +1,404 @@
+{
+ "task": "The pressure app reads about +0.5 bar with both ports open to room air. It should read about 0. Find and fix the cause.",
+ "driver": "muse-spark-1.3",
+ "reviewer": "meta-models/muse-spark-open-1026",
+ "started": "2026-11-03 15:46:47",
+ "status": "done",
+ "max_turns": 45,
+ "turns": [
+  {
+   "turn": 1,
+   "action": "set_checklist",
+   "thought": "Need to map config, live reading, and datasheet transfer function.",
+   "step": {
+    "thought": "Need to map config, live reading, and datasheet transfer function.",
+    "action": "set_checklist",
+    "items": [
+     "What settings are in config.json?",
+     "What does read_pressure.py report and how does it compute pressure?",
+     "Is the sensor detected on I2C bus?",
+     "What does datasheet say for ABP2DSNT001BD2A3XX transfer function and units?"
+    ]
+   },
+   "observations": [
+    "Checklist set: What settings are in config.json?; What does read_pressure.py report and how does it compute pressure?; Is the sensor detected on I2C bus?; What does datasheet say for ABP2DSNT001BD2A3XX transfer function and units?"
+   ]
+  },
+  {
+   "turn": 2,
+   "action": "run",
+   "thought": "Check app config first.",
+   "step": {
+    "thought": "Check app config first.",
+    "action": "run",
+    "command": "cat ~/abp2_app/config.json"
+   },
+   "observations": [
+    "[obs-1] $ cat ~/abp2_app/config.json\n{\n  \"i2c_bus\": 1,\n  \"i2c_address\": \"0x28\",\n  \"pressure_min_bar\": 0.0,\n  \"pressure_max_bar\": 1.0,\n  \"output_min_counts\": 1677722,\n  \"output_max_counts\": 15099494,\n  \"conversion_wait_ms\": 10\n}"
+   ]
+  },
+  {
+   "turn": 3,
+   "action": "run",
+   "thought": "Config shows 0-1 bar range; now see live reading.",
+   "step": {
+    "thought": "Config shows 0-1 bar range; now see live reading.",
+    "action": "run",
+    "command": "python3 ~/abp2_app/read_pressure.py"
+   },
+   "observations": [
+    "[obs-2] $ python3 ~/abp2_app/read_pressure.py\npressure=+0.5010 bar temperature=21.15 C status=0x40 raw_counts=8402637"
+   ]
+  },
+  {
+   "turn": 4,
+   "action": "search_datasheet",
+   "thought": "Need datasheet transfer and part-number meaning.",
+   "step": {
+    "thought": "Need datasheet transfer and part-number meaning.",
+    "action": "search_datasheet",
+    "query": "ABP2DSNT001BD2A3XX transfer function pressure range"
+   },
+   "observations": [
+    "[ds-p16]\n16\nSensing and Internet of Things\nBASIC BOARD MOUNT PRESSURE SENSORS, ABP2 SERIES\nTABLE 17. PRESSURE RANGE SPECIFICATIONS: \u00b130 PSI TO \u00b1175 PSI FOR PRODUCT OPTION \"G\" ONLY\nPRESSURE \nRANGE\nPRESSURE \nRANGE\nUNIT\nOVERPRESSURE1 BURST PRESSURE 2\nCOMMON3\nMODE\nPRESSURE\nTOTAL ERROR BAND 4\n(%FSS)\nTYPICAL\nOFFSET \nSHIFT \nWITH \nREFLOW \n(%FSS)\nLONG-TERM \nSTABILITY\n(1000 HR)\n(%FSS)\nTRANSFER\nFUNCTION\nPMIN . PMAX  .\nPORT 1 \n(P1)\nPORT 2 \n(P2)\nPORT 1 \n(P1)\nPORT 2 \n(P2) MODE\n-20\u00b0C\nTO\n85\u00b0C\n-40\u00b0C\nTO  \n110\u00b0C\nDifferential\n030PD -30 30 psi 240 \u2014 375 \u2014 240 \u00b12.0 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.5 A\n060PD -60 60 psi 240 \u2014 375 \u2014 240 \u00b12.0 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.5 A\nGage\n060PG 0 60 psi 240 \u2014 375 \u2014 \u2014 \u00b12.0 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.5 A\n100PG 0 100 psi 240 \u2014 375 \u2014 \u2014 \u00b12.0 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.5 A\n150PG 0 150 psi 240 \u2014 375 \u2014 \u2014 \u00b12.0 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.5 A\n175PG 0 175 psi 240 \u2014 375 \u2014 \u2014 \u00b12.0 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.5 A\n1 Overpressure: The maximum pressure which may safely be applied to the product for it to remain in specification once pressure is returned to the \noperating pressure range. Exposure to higher pressures may cause permanent damage to the product. Unless otherwise specified, this applies \nto all available pressure ports at any temperature within the operating temperature range.\n2 Burst Pressure: The maximum pressure that may be applied to any port of the product without causing escape of pressure media. The product \nshould not be expected to function after exposure to any pressure beyond the burst pressure.\n3 Common Mode Pressure: The maxi\n\n[ds-p14]\n14\nSensing and Internet of Things\nBASIC BOARD MOUNT PRESSURE SENSORS, ABP2 SERIES\nTABLE 15. PRESSURE RANGE SPECIFICATIONS: \u00b1160 KPA TO \u00b11.2 MPA FOR PRODUCT OPTIONS \"G\" ONLY\nPRESSURE \nRANGE\nPRESSURE \nRANGE\nUNIT\nOVERPRESSURE1 BURST PRESSURE 2\nCOMMON3\nMODE\nPRESSURE\nTOTAL ERROR BAND 4\n(%FSS)\nTYPICAL\nOFFSET \nSHIFT \nWITH \nREFLOW \n(%FSS)\nLONG-TERM \nSTABILITY\n(1000 HR)\n(%FSS)\nTRANSFER\nFUNCTION\nPMIN . PMAX  .\nPORT 1 \n(P1)\nPORT 2 \n(P2)\nPORT 1 \n(P1)\nPORT 2 \n(P2)\n0\u00b0C\n TO\n 50\u00b0C\n-20\u00b0C\nTO\n85\u00b0C\n-40\u00b0C\nTO  \n110\u00b0C\nDifferential\n160KD -160 160 kPa 1600 \u2014 2500 \u2014 1600 \u00b12.0 \u00b13.0. \u00b14.5 \u00b11.0 \u00b10.5 A\n250KD -250 250 kPa 1600 \u2014 2500 \u2014 1600 \u00b12.0 \u00b13.0. \u00b14.5 \u00b11.0 \u00b10.5 A\n400KD -400 400 kPa 1600 \u2014 2500 \u2014 1600 \u00b12.0 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.5 A\nGage\n400KG 0 400 kPa 1600 \u2014 2500 \u2014 \u2014 \u00b12.0 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.5 A\n600KG 0 600 kPa 1600 \u2014 2500 \u2014 \u2014 \u00b12.0 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.5 A\n800KG 0 800 kPa 1600 \u2014 2500 \u2014 \u2014 \u00b12.0 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.5 A\n001GG 0 1 MPa 1.6 \u2014 2.5 \u2014 \u2014 \u00b12.0 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.5 A\n1.2GG 0 1.2 MPa 1.6 \u2014 2.5 \u2014 \u2014 \u00b12.0 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.5 A\n1 Overpressure: The maximum pressure which may safely be applied to the product for it to remain in specification once pressure is returned to the \noperating pressure range. Exposure to higher pressures may cause permanent damage to the product. Unless otherwise specified, this applies to \nall available pressure ports at any temperature within the operating temperature range.\n2 Burst Pressure: The maximum pressure that may be applied to any port of the product without causing escape of pres"
+   ]
+  },
+  {
+   "turn": 5,
+   "action": "search_datasheet",
+   "thought": "Raw is mid-scale, suggests wrong Pmin; need part-number decode.",
+   "step": {
+    "thought": "Raw is mid-scale, suggests wrong Pmin; need part-number decode.",
+    "action": "search_datasheet",
+    "query": "ABP2 part number nomenclature 001B D differential gage"
+   },
+   "observations": [
+    "[ds-p9]\n9\nSensing and Internet of Things\nBASIC BOARD MOUNT PRESSURE SENSORS, ABP2 SERIES\nFIGURE 6 . APB2 SERIES SENSORS AND BREAKOUT BOARDS\nSELECT ABP2 SERIES SENSORS MOUNTED ON BREAKOUT BOARDS\nBreakout boards, with or without the sensor premounted (see Figure 6 and Tables 9, 10, and 11) are designed for use with the \nHoneywell SEB Sensor Evaluation Kit.\nTABLE 9. ORDER GUIDE FOR ABP2 SERIES SENSORS AND BREAKOUT BOARDS\nCATALOG LISTING DESCRIPTION\nABP2MRRN004ND2B3BB\nABP2 Series sensor with SMT package, plastic dual radial barbed ports, same side pressure port, \ndry gases only, no diagnostics, \u00b14 inH2O differential pressure range, I2C address 0x28, 30% to \n70% of 224 counts digital transfer function, 3.3 Vdc supply premounted on breakout board \nABP2MDAN004ND2B3BB\nABP2 Series sensor with SMT package, plastic dual axial barbed ports same side, dry gases only, \nno diagnostics, \u00b14 inH2O differential pressure range, I2C address 0x28, 30% to 70% of 224 counts \ndigital transfer function, 3.3 Vdc supply premounted on breakout board \nABP2MVNT400MG2A3BB\nABP2 Series sensor with leaded SMT package, metal single axial tapered pressure port, liquid \nmedia, food-grade silicone gel, no diagnostics, 400 mbar gage pressure range, I2C address 0x28, \n10% to 90% of 224 counts digital transfer function, 3.3 Vdc supply premounted on breakout board\nABP2LANT001PG2A3BB\nABP2 Series sensor with leadless SMT package, plastic single axial barbed pressure port, liquid \nmedia, food-grade silicone gel, no diagnostics, \n\n[ds-p20]\n20\nSensing and Internet of Things\nBASIC BOARD MOUNT PRESSURE SENSORS, ABP2 SERIES\nFIGURE 8. SMT PACKAGE DIMENSIONAL DRAWINGS (FOR REFERENCE ONLY: MM [IN].)\nSMT NN: Plastic no port\nSMT AN: Plastic single axial barbed port\nSMT VN: Metal single axial barbless port\nSMT SN: Metal single axial straight barbless port\n3,0\n[0.12]\n             3,59 (options: T, G)\n  [0.141]                \n       3,31 (option: N)\n  [0.130]               \n11,0\n[0.43]\n11,5\n[0.45]\n1,0\n[0.04]\n7,3\n[0.29]\n4,1\n[0.16]\n5,5\n[0.22]\n6X 1,28\n      [0.050]\n6X 0,46\n      [0.018]\nPIN 1\nINDICATOR\n8,2\n[0.32]\n5,5\n[0.22]\n         2,54 TYP\n[0.100]\n6,3\n[0.25]\n5,5\n[0.22]\n4,1\n[0.16]\n11,5\n[0.45]\n1,0\n[0.04]\n3,56\n[0.140]\n7,00\n[0.276]\n\u00f82,32\n [0.091]\n\u00f81,90\n [0.075]\n\u00f82,74\n [0.108]\n            3,59 (options: T, G)\n  [0.141]                \n        3,31 (option: N)\n  [0.130]               \n7,3\n[0.29]\n6X 1,28\n      [0.050]\n3,0\n[0.12]\n8,2\n[0.32]\n6,3\n[0.25]\n  \u00f80,30 \n [0.012]\nGAGE HOLE\n2X 1,56\n      [0.061]\n         0,25 TYP\n[0.010]4,2\n[0.16]\n6,8\n[0.27]\n         0,25 TYP\n[0.010]\n6X 0,46\n      [0.018]\n11,0\n[0.43]\n5,5\n[0.22]\n         2,54 TYP\n[0.100]\n2X 1,56\n      [0.061]\n  \u00f80,30 \n [0.012]\nGAGE HOLE\n4,2\n[0.16]\n13,8\n[0.54]\nPIN 1\nINDICATOR\n  \u00f80,30 \n [0.012]\nGAGE HOLE\n  \u00f80,30 \n [0.012]\nGAGE HOLE\n6X 0,46\n      [0.018]\n         2,54 TYP\n[0.100]\n2X 1,56\n      [0.061]\n3,0\n[0.12]\n8,2\n[0.32]\n11,0\n[0.43]\n5,5\n[0.22]\n11,5\n[0.45]\n1,0\n[0.04]          0,25 TYP[0.010]\n4,2\n[0.16]\n11,2\n[0.44]\n4,1\n[0.16]\nPIN 1\nINDICATOR\n5,5\n[0.22]\n5,5\n[0.22]\nPIN 1\nINDICATOR\n"
+   ]
+  },
+  {
+   "turn": 6,
+   "action": "search_datasheet",
+   "thought": "Need exact nomenclature for 001BD.",
+   "step": {
+    "thought": "Need exact nomenclature for 001BD.",
+    "action": "search_datasheet",
+    "query": "nomenclature ordering options pressure range 001B differential"
+   },
+   "observations": [
+    "[ds-p20]\n20\nSensing and Internet of Things\nBASIC BOARD MOUNT PRESSURE SENSORS, ABP2 SERIES\nFIGURE 8. SMT PACKAGE DIMENSIONAL DRAWINGS (FOR REFERENCE ONLY: MM [IN].)\nSMT NN: Plastic no port\nSMT AN: Plastic single axial barbed port\nSMT VN: Metal single axial barbless port\nSMT SN: Metal single axial straight barbless port\n3,0\n[0.12]\n             3,59 (options: T, G)\n  [0.141]                \n       3,31 (option: N)\n  [0.130]               \n11,0\n[0.43]\n11,5\n[0.45]\n1,0\n[0.04]\n7,3\n[0.29]\n4,1\n[0.16]\n5,5\n[0.22]\n6X 1,28\n      [0.050]\n6X 0,46\n      [0.018]\nPIN 1\nINDICATOR\n8,2\n[0.32]\n5,5\n[0.22]\n         2,54 TYP\n[0.100]\n6,3\n[0.25]\n5,5\n[0.22]\n4,1\n[0.16]\n11,5\n[0.45]\n1,0\n[0.04]\n3,56\n[0.140]\n7,00\n[0.276]\n\u00f82,32\n [0.091]\n\u00f81,90\n [0.075]\n\u00f82,74\n [0.108]\n            3,59 (options: T, G)\n  [0.141]                \n        3,31 (option: N)\n  [0.130]               \n7,3\n[0.29]\n6X 1,28\n      [0.050]\n3,0\n[0.12]\n8,2\n[0.32]\n6,3\n[0.25]\n  \u00f80,30 \n [0.012]\nGAGE HOLE\n2X 1,56\n      [0.061]\n         0,25 TYP\n[0.010]4,2\n[0.16]\n6,8\n[0.27]\n         0,25 TYP\n[0.010]\n6X 0,46\n      [0.018]\n11,0\n[0.43]\n5,5\n[0.22]\n         2,54 TYP\n[0.100]\n2X 1,56\n      [0.061]\n  \u00f80,30 \n [0.012]\nGAGE HOLE\n4,2\n[0.16]\n13,8\n[0.54]\nPIN 1\nINDICATOR\n  \u00f80,30 \n [0.012]\nGAGE HOLE\n  \u00f80,30 \n [0.012]\nGAGE HOLE\n6X 0,46\n      [0.018]\n         2,54 TYP\n[0.100]\n2X 1,56\n      [0.061]\n3,0\n[0.12]\n8,2\n[0.32]\n11,0\n[0.43]\n5,5\n[0.22]\n11,5\n[0.45]\n1,0\n[0.04]          0,25 TYP[0.010]\n4,2\n[0.16]\n11,2\n[0.44]\n4,1\n[0.16]\nPIN 1\nINDICATOR\n5,5\n[0.22]\n5,5\n[0.22]\nPIN 1\nINDICATOR\n\n\n[ds-p14]\n14\nSensing and Internet of Things\nBASIC BOARD MOUNT PRESSURE SENSORS, ABP2 SERIES\nTABLE 15. PRESSURE RANGE SPECIFICATIONS: \u00b1160 KPA TO \u00b11.2 MPA FOR PRODUCT OPTIONS \"G\" ONLY\nPRESSURE \nRANGE\nPRESSURE \nRANGE\nUNIT\nOVERPRESSURE1 BURST PRESSURE 2\nCOMMON3\nMODE\nPRESSURE\nTOTAL ERROR BAND 4\n(%FSS)\nTYPICAL\nOFFSET \nSHIFT \nWITH \nREFLOW \n(%FSS)\nLONG-TERM \nSTABILITY\n(1000 HR)\n(%FSS)\nTRANSFER\nFUNCTION\nPMIN . PMAX  .\nPORT 1 \n(P1)\nPORT 2 \n(P2)\nPORT 1 \n(P1)\nPORT 2 \n(P2)\n0\u00b0C\n TO\n 50\u00b0C\n-20\u00b0C\nTO\n85\u00b0C\n-40\u00b0C\nTO  \n110\u00b0C\nDifferential\n160KD -160 160 kPa 1600 \u2014 2500 \u2014 1600 \u00b12.0 \u00b13.0. \u00b14.5 \u00b11.0 \u00b10.5 A\n250KD -250 250 kPa 1600 \u2014 2500 \u2014 1600 \u00b12.0 \u00b13.0. \u00b14.5 \u00b11.0 \u00b10.5 A\n400KD -400 400 kPa 1600 \u2014 2500 \u2014 1600 \u00b12.0 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.5 A\nGage\n400KG 0 400 kPa 1600 \u2014 2500 \u2014 \u2014 \u00b12.0 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.5 A\n600KG 0 600 kPa 1600 \u2014 2500 \u2014 \u2014 \u00b12.0 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.5 A\n800KG 0 800 kPa 1600 \u2014 2500 \u2014 \u2014 \u00b12.0 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.5 A\n001GG 0 1 MPa 1.6 \u2014 2.5 \u2014 \u2014 \u00b12.0 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.5 A\n1.2GG 0 1.2 MPa 1.6 \u2014 2.5 \u2014 \u2014 \u00b12.0 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.5 A\n1 Overpressure: The maximum pressure which may safely be applied to the product for it to remain in specification once pressure is returned to the \noperating pressure range. Exposure to higher pressures may cause permanent damage to the product. Unless otherwise specified, this applies to \nall available pressure ports at any temperature within the operating temperature range.\n2 Burst Pressure: The maximum pressure that may be applied to any port of the product without causing escape of pres"
+   ]
+  },
+  {
+   "turn": 7,
+   "action": "search_datasheet",
+   "thought": "Need bar-range table and transfer formula.",
+   "step": {
+    "thought": "Need bar-range table and transfer formula.",
+    "action": "search_datasheet",
+    "query": "001BD 1 bar differential pressure range specifications"
+   },
+   "observations": [
+    "[ds-p8]\n8\nSensing and Internet of Things\nBASIC BOARD MOUNT PRESSURE SENSORS, ABP2 SERIES\nFIGURE 5 . NOMENCLATURE AND ORDER GUIDE\nFuture\nXX \n ABP2     D     AN     T     001BA     2     A     3     XX\nProduct Series\nPackage\nPressure Port1\nDIP\nABP2   Ampli\ufb01ed Basic\nProduct Option2,3 \nSMT\nNN\nLeadless SMT\nAN\nVN\nSingle axial \nbarbed port\nSingle axial \nbarbless port\nNo portNN\nAN\nVN\nSingle axial \nbarbed port\nSingle axial \nbarbless port\nNo portNN\nAN\nVN\nSingle axial \nbarbed port\nSingle axial \nbarbless port\nNo port Output Type\nSupply Voltage\nFor example, ABP2DANT001BA2A3XX de\ufb01nes an ABP2 Series Ampli\ufb01ed Basic Pressure Sensor, DIP package, plastic single axial\nbarbed pressure port, liquid media, food-grade silicone gel, no diagnostics, 1 bar absolute pressure range, digital I\n2\nC, address\n0x28 output type, 10% to 90% of 2\n24\n counts (digital) transfer function, 3.3 Vdc supply voltage.\nPressure Range\n2 Product Option \u201cN\u201d is only available with gage pressure ranges 10 mbar to 40 mbar | 1kPa to 4 kPa | 4 inH2O to 20 inH2O, \u00b16 mbar to \u00b125 mbar | \u00b11 kPa to\u00b1 2.5 kPa | \u00b12 inH2O to \u00b110 inH2O.\n\u00b12 inH20 to \u00b1175 psi\u00b16 mbar to \u00b112 bar\nDifferentialDifferential\nGage\n002ND \n004ND \n005ND \n010ND \n020ND\n030ND\n001PD\n005PD\n015PD\n030PD\n060PD\n \n \nGage\n006MD \n010MD \n016MD \n025MD \n040MD  \n060MD \n100MD \n160MD   \n250MD   \n400MD\n600MD\n001BD\n1.6BD\n2.5BD\n004BD\n010MG\n016MG\n025MG\n040MG\n060MG\n100MG\n160MG\n250MG \n400MG\n600MG \n001BG\n1.6BG\n2.5BG\n004BG\n006BG\n008BG\n010BG\n012BG \n\u00b16 mbar\n\u00b110 mbar\n\u00b116 mbar\n\u00b125 mbar\n\u00b140 mbar\n\u00b160 mbar\n\u00b1\n\n[ds-p11]\n11\nSensing and Internet of Things\nBASIC BOARD MOUNT PRESSURE SENSORS, ABP2 SERIES\nTABLE 12. PRESSURE RANGE SPECIFICATIONS: \u00b16 MBAR TO \u00b112 BAR FOR PRODUCT OPTIONS \"N\" AND \"T\" ONLY\nPRESSURE \nRANGE\nPRESSURE \nRANGE\nUNIT\nOVERPRESSURE1 BURST PRESSURE 2 TOTAL ERROR BAND3\n(%FSS)\nTYPICAL \nOFFSET \nSHIFT WITH \nREFLOW \n(%FSS)\nLONG-TERM \nSTABILITY\n(1000 HR)\n(%FSS)\nTRANSFER\nFUNCTION\nPMIN . PMAX  .\nPORT 1 \n(P1)\nPORT 2 \n(P2)\nPORT 1 \n(P1)\nPORT 2 \n(P2)\n0\u00b0C\n TO\n 50\u00b0C\n-20\u00b0C\nTO\n85\u00b0C\n-40\u00b0C\nTO  \n110\u00b0C\nAbsolute\n001BA 0 1 bar 16 \u2014 25 NA \u00b11.5 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.2 A\n1.6BA 0 1.6 bar 16 \u2014 25 NA \u00b11.5 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.2 A\n2.5BA 0 2.5 bar 16 \u2014 25 NA \u00b11.5 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.2 A\nDifferential\n006MD -6 6 mbar 700 700 7000 1000 \u00b12.0 \u00b13.5 \u2014 \u00b11.0 \u00b10.3 B\n010MD -10 10 mbar 700 700 7000 1000 \u00b12.0 \u00b13.5 \u2014 \u00b11.0 \u00b10.3 B\n016MD -16 16 mbar 700 700 7000 1000 \u00b12.0 \u00b13.5 \u2014 \u00b11.0 \u00b10.3 A\n025MD -25 25 mbar 700 700 7000 1000 \u00b12.0 \u00b13.5 \u2014 \u00b11.0 \u00b10.3 A\n040MD -40 40 mbar 2000 1000 7000 2000 \u00b11.5 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.2 A\n060MD -60 60 mbar 2000 1000 7000 2000 \u00b11.5 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.2 A\n100MD -100 100 mbar 2000 1000 7000 2000 \u00b11.5 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.2 A\n160MD -160 160 mbar 2000 1000 7000 2000 \u00b11.5 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.2 A\n250MD -250 250 mbar 16000 \u2014 25000 \u2014 \u00b11.5 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.2 A\n400MD -400 400 mbar 16000 \u2014 25000 \u2014 \u00b11.5 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.2 A\n600MD -600 600 mbar 16000 \u2014 25000 \u2014 \u00b11.5 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.2 A\n001BD -1 1 bar 16 \u2014 25 \u2014 \u00b11.5 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.2 A\n1.6BD -1.6 1.6 bar 16 \u2014 25 \u2014 \u00b11.5 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.2 A\n2.5BD -2.5 2.5 bar 16 \u2014 25 \u2014 \u00b11.5 \u00b1"
+   ]
+  },
+  {
+   "turn": 8,
+   "action": "search_datasheet",
+   "thought": "Need transfer formula and I2C presence to prove config error.",
+   "step": {
+    "thought": "Need transfer formula and I2C presence to prove config error.",
+    "action": "search_datasheet",
+    "query": "Transfer Function A output 10% 90% pressure calculation formula"
+   },
+   "observations": [
+    "[ds-p34]\n34\nSensing and Internet of Things\nBASIC BOARD MOUNT PRESSURE SENSORS, ABP2 SERIES\n8 .0  ABP2 SERIES CALCULATIONS\n8 .1 Pressure Output\nThe ABP2 Series sensor pressure output may be expressed by the transfer function of the device as shown in Equation 1: \nEquation 1: Pressure Sensor Transfer Function \nRearranging this equation to solve for Pressure provides Equation 2: \nEquation 2: Pressure Output Function \nWhere: \n Output max. = output at maximum pressure [counts] \n Output min. = output at minimum pressure [counts] \n P max. = maximum value of pressure range [bar, psi, kPa, etc.] \n P min. = minimum value of pressure range [bar, psi, kPa, etc.] \n Pressure = pressure reading [bar, psi, kPa, etc.] \n Output = digital pressure reading [counts] \nExample: Calculate the pressure for a -1 psi to 1 psi gage sensor with a 10 to 90 calibration, and a pressure output of 14260634 \n(decimal) counts: \nOutputmax. = 15099494 counts (90 of 224 counts or 0xE66666) \nOutputmin. = 1677722 counts (10 of 224 counts or 0x19999A) \nPmax. = 1 psi \nPmin. = -1 psi \nPressure = calculated pressure in psi \nOutput = 14260634 counts \n(14260634 - 1677722) * (1 - ( - 1)) + (-1)\n15099494 - 1677722\nPressure  =   ( (\n25165824 + (-1)\n13421772 \nPressure =   ( (\nOutputmax. - Outputmin.\nPmax. - Pmin.  Output =  *  (Pressure - Pmin.)  + Outputmin.                              \n(Output - Outputmin.) + Pmin.\nOutputmax. - Outputmin.  Pressure =    * (Pmax.- Pmin.)\nPressure = 0.875 psi   \n\n[ds-p33]\n33\nSensing and Internet of Things\nBASIC BOARD MOUNT PRESSURE SENSORS, ABP2 SERIES\n#include<Arduino.h> \n#include<SPI.h> \n \ndouble press_counts = 0; // digital pressure reading [counts] \ndouble temp_counts = 0; // digital temperature reading [counts] \ndouble pressure = 0; // pressure reading [bar, psi, kPa, etc.] \ndouble temperature = 0; // temperature reading in deg C \ndouble outputmax = 15099494; // output at maximum pressure [counts] \ndouble outputmin = 1677722; // output at minimum pressure [counts] \ndouble pmax = 1; // maximum value of pressure range [bar, psi, kPa, etc.] \ndouble pmin = 0; // minimum value of pressure range [bar, psi, kPa, etc.] \ndouble percentage = 0; // holds percentage of full scale data \nchar printBuffer[200], cBuff[20], percBuff[20], pBuff[20], tBuff[20]; \nvoid setup() { \n  Serial.begin(9600); \n  while (!Serial) { \n    delay(10); \n  } \n  sprintf(printBuffer, \"\\nStatus Register, 24-bit Sensor data, Digital Pressure Counts,\\ \n  Percentage of full scale pressure,Pressure Output, Temperature\\n\"); \n  Serial.println(printBuffer); \n  SPI.begin(); \n  pinMode(10, OUTPUT); // pin 10 as SS \n  digitalWrite(10, HIGH); // set SS High \n} \nvoid loop() { \n  delay(1); \n  while (1) { \n    uint8_t data[7] = {0xFA, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}; // holds output data \n    uint8_t cmd[3] = {0xAA, 0x00, 0x00}; // command to be sent \n    SPI.beginTransaction(SPISettings(200000, MSBFIRST, SPI_MODE0)); //SPI at 200kHz \n    digitalWrite(10, LOW); // set SS Low \n    SPI.tra"
+   ]
+  },
+  {
+   "turn": 9,
+   "action": "run",
+   "thought": "Rule out wiring/power before config fix.",
+   "step": {
+    "thought": "Rule out wiring/power before config fix.",
+    "action": "run",
+    "command": "/usr/sbin/i2cdetect -y 1"
+   },
+   "observations": [
+    "[obs-11] $ /usr/sbin/i2cdetect -y 1\n0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f\n00:                         -- -- -- -- -- -- -- -- \n10: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- \n20: -- -- -- -- -- -- -- -- 28 -- -- -- -- -- -- -- \n30: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- \n40: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- \n50: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- \n60: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- \n70: -- -- -- -- -- -- -- --"
+   ]
+  },
+  {
+   "turn": 10,
+   "action": "record_fact",
+   "thought": "Recording config as evidence of wrong Pmin.",
+   "step": {
+    "thought": "Recording config as evidence of wrong Pmin.",
+    "action": "record_fact",
+    "item": "What settings are in config.json?",
+    "source": "obs-1",
+    "quote": "\"pressure_min_bar\": 0.0,",
+    "claim": "config assumes 0 to 1 bar unipolar range"
+   },
+   "observations": [
+    "Fact recorded for 'What settings are in config.json?' from obs-1."
+   ]
+  },
+  {
+   "turn": 11,
+   "action": "record_fact",
+   "thought": "Log live mid-scale evidence.",
+   "step": {
+    "thought": "Log live mid-scale evidence.",
+    "action": "record_fact",
+    "item": "What does read_pressure.py report and how does it compute pressure?",
+    "source": "obs-2",
+    "quote": "pressure=+0.5010 bar temperature=21.15 C status=0x40 raw_counts=8402637",
+    "claim": "sensor outputs mid-scale counts at 0 pressure but app computes +0.5 bar"
+   },
+   "observations": [
+    "Fact recorded for 'What does read_pressure.py report and how does it compute pressure?' from obs-2."
+   ]
+  },
+  {
+   "turn": 12,
+   "action": "record_fact",
+   "thought": "Log I2C presence to rule out wiring.",
+   "step": {
+    "thought": "Log I2C presence to rule out wiring.",
+    "action": "record_fact",
+    "item": "Is the sensor detected on I2C bus?",
+    "source": "obs-11",
+    "quote": "20: -- -- -- -- -- -- -- -- 28 -- -- -- -- -- -- --",
+    "claim": "sensor detected at 0x28, wiring OK"
+   },
+   "observations": [
+    "Fact recorded for 'Is the sensor detected on I2C bus?' from obs-11."
+   ]
+  },
+  {
+   "turn": 13,
+   "action": "record_fact",
+   "thought": "Need to log datasheet range to prove Pmin should be -1.",
+   "step": {
+    "thought": "Need to log datasheet range to prove Pmin should be -1.",
+    "action": "record_fact",
+    "item": "What does datasheet say for ABP2DSNT001BD2A3XX transfer function and units?",
+    "source": "ds-p11",
+    "quote": "001BD -1 1 bar 16 \u2014 25 \u2014 \u00b11.5 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.2 A",
+    "claim": "001BD is -1 to 1 bar differential with Transfer Function A"
+   },
+   "observations": [
+    "Fact recorded for 'What does datasheet say for ABP2DSNT001BD2A3XX transfer function and units?' from ds-p11."
+   ]
+  },
+  {
+   "turn": 14,
+   "action": "apply_fix",
+   "thought": "Fix Pmin 0 to -1 for differential sensor.",
+   "step": {
+    "thought": "Fix Pmin 0 to -1 for differential sensor.",
+    "action": "apply_fix",
+    "key": "pressure_min_bar",
+    "value": -1.0
+   },
+   "observations": [
+    "Fix applied: pressure_min_bar = -1.0 (backup saved).\n[obs-12] Independent test:\nstatus=0x40 pressure_counts=8402875 pressure=+0.0021 bar temperature=21.12 C\nPASS  powered (status bit 6 = 1)\nPASS  not busy (status bit 5 = 0)\nPASS  memory integrity OK (status bit 2 = 0)\nPASS  no math saturation (status bit 0 = 0)\nPASS  pressure ~0 bar at room air (within +/-0.03 bar)\nPASS  temperature plausible (5 to 45 C)\nRESULT: PASS\nApp output:\npressure=+0.0021 bar temperature=21.15 C status=0x40 raw_counts=8402705\nVERIFICATION: PASS"
+   ]
+  },
+  {
+   "turn": 15,
+   "action": "finish",
+   "thought": "Root cause proven and test PASS, finishing.",
+   "step": {
+    "thought": "Root cause proven and test PASS, finishing.",
+    "action": "finish",
+    "root_cause": "config.json used pressure_min_bar 0.0 (0 to 1 bar gage) but ABP2DSNT001BD2A3XX is 001BD -1 to +1 bar differential, so zero-pressure mid-scale counts computed as +0.5 bar",
+    "fix": "set pressure_min_bar to -1.0 to match -1 to 1 bar differential range; verified app now reads ~0.002 bar",
+    "needs_human": false,
+    "findings": [
+     {
+      "claim": "config assumed 0 to 1 bar range",
+      "source": "obs-1",
+      "quote": "\"pressure_min_bar\": 0.0,"
+     },
+     {
+      "claim": "sensor outputs mid-scale counts at 0 pressure but app computes +0.5 bar",
+      "source": "obs-2",
+      "quote": "pressure=+0.5010 bar temperature=21.15 C status=0x40 raw_counts=8402637"
+     },
+     {
+      "claim": "sensor detected at 0x28, wiring OK",
+      "source": "obs-11",
+      "quote": "20: -- -- -- -- -- -- -- -- 28 -- -- -- -- -- -- --"
+     },
+     {
+      "claim": "001BD is -1 to 1 bar differential with Transfer Function A",
+      "source": "ds-p11",
+      "quote": "001BD -1 1 bar 16 \u2014 25 \u2014 \u00b11.5 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.2 A"
+     },
+     {
+      "claim": "Transfer Function A uses 10% to 90% counts",
+      "source": "ds-p34",
+      "quote": "Outputmax. = 15099494 counts (90 of 224 counts or 0xE66666)"
+     }
+    ]
+   },
+   "observations": [
+    "REFUSED: reviewer: Finding 'config assumed 0 to 1 bar range' overreaches: quote shows only '\"pressure_min_bar\": 0.0,' and does not contain the specific value for max 1.0 bar; reviewer: Finding 'sensor outputs mid-scale counts at 0 pressure but app computes +0.5 bar' overreaches: quote 'pressure=+0.5010 bar ... raw_counts=8402637' shows a ~0.5 bar reading but does not establish zero-pressure test condition nor that 8402637 is defined as mid-scale; reviewer: Finding 'Transfer Function A uses 10% to 90% counts' overreaches: quote shows only 'Outputmax. = 15099494 counts (90 of 224 counts or 0xE66666)' for 90%, missing the specific 10% minimum value; reviewer: Finding 'sensor detected at 0x28, wiring OK' overreaches on 'wiring OK': quote shows i2c presence at address 28 but contains no wiring-status assertion; reviewer: root_cause not supported by valid findings: requires proven 0-to-1 vs -1-to-1 range mismatch and zero-pressure mid-scale mapping, but findings lack valid evidence for max 1.0, zero-pressure condition, and 10% lower bound; reviewer: fix not supported by findings: claim 'set pressure_min_bar to -1.0' and 'verified app now reads ~0.002 bar' has no quote showing the changed config value or post-fix pressure reading"
+   ]
+  },
+  {
+   "turn": 16,
+   "action": "run",
+   "thought": "Need post-fix config quote.",
+   "step": {
+    "thought": "Need post-fix config quote.",
+    "action": "run",
+    "command": "cat ~/abp2_app/config.json"
+   },
+   "observations": [
+    "[obs-13] $ cat ~/abp2_app/config.json\n{\n  \"i2c_bus\": 1,\n  \"i2c_address\": \"0x28\",\n  \"pressure_min_bar\": -1.0,\n  \"pressure_max_bar\": 1.0,\n  \"output_min_counts\": 1677722,\n  \"output_max_counts\": 15099494,\n  \"conversion_wait_ms\": 10\n}"
+   ]
+  },
+  {
+   "turn": 17,
+   "action": "finish",
+   "thought": "Need to finish with tightly scoped evidence quotes.",
+   "step": {
+    "thought": "Need to finish with tightly scoped evidence quotes.",
+    "action": "finish",
+    "root_cause": "config.json used pressure_min_bar 0.0 with pressure_max_bar 1.0 while ABP2DSNT001BD2A3XX 001BD is -1 to 1 bar, so room-air zero-differential mid-scale counts computed as +0.5 bar",
+    "fix": "changed pressure_min_bar from 0.0 to -1.0 to match -1 to 1 bar range; post-fix reading ~+0.0021 bar",
+    "needs_human": false,
+    "findings": [
+     {
+      "claim": "config.json contained pressure_min_bar 0.0",
+      "source": "obs-1",
+      "quote": "\"pressure_min_bar\": 0.0,"
+     },
+     {
+      "claim": "config.json contained pressure_max_bar 1.0",
+      "source": "obs-1",
+      "quote": "\"pressure_max_bar\": 1.0,"
+     },
+     {
+      "claim": "app reported pressure +0.5010 bar with raw_counts 8402637",
+      "source": "obs-2",
+      "quote": "pressure=+0.5010 bar temperature=21.15 C status=0x40 raw_counts=8402637"
+     },
+     {
+      "claim": "i2cdetect shows device at address 28",
+      "source": "obs-11",
+      "quote": "20: -- -- -- -- -- -- -- -- 28 -- -- -- -- -- -- --"
+     },
+     {
+      "claim": "datasheet lists 001BD as -1 to 1 bar",
+      "source": "ds-p11",
+      "quote": "001BD -1 1 bar 16 \u2014 25 \u2014 \u00b11.5 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.2 A"
+     },
+     {
+      "claim": "datasheet defines Outputmax as 15099494 counts (90 of 224 counts)",
+      "source": "ds-p34",
+      "quote": "Outputmax. = 15099494 counts (90 of 224 counts or 0xE66666)"
+     },
+     {
+      "claim": "datasheet defines Outputmin as 1677722 counts (10 of 224 counts)",
+      "source": "ds-p34",
+      "quote": "Outputmin. = 1677722 counts (10 of 224 counts or 0x19999A)"
+     },
+     {
+      "claim": "independent test expects pressure ~0 bar at room air",
+      "source": "obs-12",
+      "quote": "PASS  pressure ~0 bar at room air (within +/-0.03 bar)"
+     },
+     {
+      "claim": "config now contains pressure_min_bar -1.0",
+      "source": "obs-13",
+      "quote": "\"pressure_min_bar\": -1.0,"
+     },
+     {
+      "claim": "post-fix app output was pressure +0.0021 bar with raw_counts 8402705",
+      "source": "obs-12",
+      "quote": "pressure=+0.0021 bar temperature=21.15 C status=0x40 raw_counts=8402705"
+     }
+    ]
+   },
+   "observations": [
+    "REFUSED: reviewer: reviewer unavailable (Connection error.)",
+    "ERROR: driver unavailable (Connection error.). Retrying.",
+    "ERROR: driver unavailable (Connection error.). Retrying.",
+    "ERROR: driver unavailable (Connection error.). Retrying.",
+    "ERROR: driver unavailable (Connection error.). Retrying.",
+    "ERROR: driver unavailable (Connection error.). Retrying.",
+    "ERROR: driver unavailable (Connection error.). Retrying.",
+    "ERROR: driver unavailable (Connection error.). Retrying.",
+    "ERROR: driver unavailable (Connection error.). Retrying.",
+    "ERROR: driver unavailable (Connection error.). Retrying.",
+    "ERROR: driver unavailable (Connection error.). Retrying.",
+    "ERROR: driver unavailable (Connection error.). Retrying.",
+    "ERROR: driver unavailable (Connection error.). Retrying.",
+    "ERROR: driver unavailable (Connection error.). Retrying.",
+    "ERROR: driver unavailable (Connection error.). Retrying.",
+    "ERROR: driver unavailable (Connection error.). Retrying.",
+    "ERROR: driver unavailable (Connection error.). Retrying.",
+    "ERROR: driver unavailable (Connection error.). Retrying.",
+    "ERROR: driver unavailable (Connection error.). Retrying.",
+    "ERROR: driver unavailable (Connection error.). Retrying.",
+    "ERROR: driver unavailable (Connection error.). Retrying.",
+    "ERROR: driver unavailable (Connection error.). Retrying.",
+    "ERROR: driver unavailable (Connection error.). Retrying.",
+    "ERROR: driver unavailable (Connection error.). Retrying.",
+    "ERROR: driver unavailable (Connection error.). Retrying.",
+    "ERROR: driver unavailable (Connection error.). Retrying.",
+    "ERROR: driver unavailable (Connection error.). Retrying.",
+    "ERROR: driver unavailable (Connection error.). Retrying.",
+    "ERROR: driver unavailable (Connection error.). Retrying."
+   ]
+  }
+ ],
+ "checklist": [
+  "What settings are in config.json?",
+  "What does read_pressure.py report and how does it compute pressure?",
+  "Is the sensor detected on I2C bus?",
+  "What does datasheet say for ABP2DSNT001BD2A3XX transfer function and units?"
+ ],
+ "facts": [
+  {
+   "thought": "Recording config as evidence of wrong Pmin.",
+   "action": "record_fact",
+   "item": "What settings are in config.json?",
+   "source": "obs-1",
+   "quote": "\"pressure_min_bar\": 0.0,",
+   "claim": "config assumes 0 to 1 bar unipolar range"
+  },
+  {
+   "thought": "Log live mid-scale evidence.",
+   "action": "record_fact",
+   "item": "What does read_pressure.py report and how does it compute pressure?",
+   "source": "obs-2",
+   "quote": "pressure=+0.5010 bar temperature=21.15 C status=0x40 raw_counts=8402637",
+   "claim": "sensor outputs mid-scale counts at 0 pressure but app computes +0.5 bar"
+  },
+  {
+   "thought": "Log I2C presence to rule out wiring.",
+   "action": "record_fact",
+   "item": "Is the sensor detected on I2C bus?",
+   "source": "obs-11",
+   "quote": "20: -- -- -- -- -- -- -- -- 28 -- -- -- -- -- -- --",
+   "claim": "sensor detected at 0x28, wiring OK"
+  },
+  {
+   "thought": "Need to log datasheet range to prove Pmin should be -1.",
+   "action": "record_fact",
+   "item": "What does datasheet say for ABP2DSNT001BD2A3XX transfer function and units?",
+   "source": "ds-p11",
+   "quote": "001BD -1 1 bar 16 \u2014 25 \u2014 \u00b11.5 \u00b13.0 \u00b14.5 \u00b11.0 \u00b10.2 A",
+   "claim": "001BD is -1 to 1 bar differential with Transfer Function A"
+  }
+ ],
+ "tokens": 110821,
+ "result": "turn_limit",
+ "turn_count": 45,
+ "refusals": 2
+}

@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bring-Up Bot — Console</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--fg:#14181f;--muted:#5d6675;--line:#e1e5ea;--accent:#2f5bea;
+--ok:#137a3f;--okbg:#e5f5ec;--bad:#b42318;--badbg:#fdecea;--warn:#8a5a00;--warnbg:#fff4dc;--code:#f1f3f6;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1217;--card:#171b22;--fg:#e6e9ee;--muted:#9aa3b2;--line:#2a313c;
+--accent:#7b9bff;--ok:#5fd393;--okbg:#12301f;--bad:#ff8a80;--badbg:#3a1714;--warn:#ffcf66;--warnbg:#33280f;--code:#1e242e;color-scheme:dark}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid var(--line);background:var(--card)}
+h1{font-size:18px;margin:0}h1 span{color:var(--muted);font-weight:400}
+select{font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--fg);max-width:100%}
+input,button{font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--fg)}
+button{cursor:pointer;font-weight:600}form{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+main{max-width:1200px;margin:0 auto;padding:20px 24px;display:grid;grid-template-columns:minmax(0,380px) minmax(0,1fr);gap:20px}
+@media (max-width:860px){main{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+.card h2{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.stat b{display:block;font-size:20px}.stat small{color:var(--muted)}
+.badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:13px;font-weight:600}
+.ok{background:var(--okbg);color:var(--ok)}.bad{background:var(--badbg);color:var(--bad)}.warn{background:var(--warnbg);color:var(--warn)}
+ul{margin:0;padding-left:18px}li{margin:4px 0}.muted{color:var(--muted)}
+.fact{border-left:3px solid var(--accent);padding:4px 10px;margin:8px 0}.fact q{display:block;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;background:var(--code);padding:6px 8px;border-radius:6px;margin-top:4px;overflow-x:auto;white-space:pre-wrap}
+.turn{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px}
+.turn.refused{border-color:var(--bad)}.turn.verified{border-color:var(--ok)}
+.turn header{all:unset;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.chip{font-family:ui-monospace,Menlo,monospace;font-size:12px;padding:1px 8px;border-radius:6px;background:var(--code)}
+.thought{margin:6px 0 4px}
+details summary{cursor:pointer;color:var(--muted);font-size:13px}
+pre{font-family:ui-monospace,Menlo,monospace;font-size:12px;background:var(--code);padding:8px;border-radius:6px;overflow-x:auto;white-space:pre-wrap;max-height:320px;overflow-y:auto;margin:6px 0 0}
+.empty{color:var(--muted);padding:40px;text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <h1>Bring-Up Bot <span>· Raspberry Pi 5 + Honeywell ABP2</span></h1>
+  <form id="runform">
+    <input id="task" size="42" placeholder="Task, e.g. The pressure app reads +0.5 bar at room air. Find and fix it.">
+    <input id="maxturns" type="number" value="20" min="1" title="Max turns" style="width:5em">
+    <button type="submit">Run agent</button>
+  </form>
+  <select id="runs" aria-label="Choose a run"></select>
+</header>
+<main id="app"><div class="empty">No runs yet. Start the agent, then this page updates live.</div></main>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let current = null, followLatest = true;
+
+async function listRuns() {
+  const names = await (await fetch("/api/runs")).json();
+  const sel = $("#runs");
+  const prev = sel.value;
+  sel.innerHTML = names.map(n => `<option>${n}</option>`).join("");
+  if (followLatest && names.length) sel.value = names[0];
+  else if (prev) sel.value = prev;
+  return sel.value;
+}
+
+function resultBadge(log) {
+  if (log.status === "running") return '<span class="badge warn">running…</span>';
+  const r = log.result || "unknown";
+  const cls = r === "fixed_and_verified" ? "ok" : (r === "needs_human" ? "warn" : "bad");
+  return `<span class="badge ${cls}">${esc(r.replaceAll("_", " "))}</span>`;
+}
+
+function render(log) {
+  const turns = Array.isArray(log.turns) ? log.turns : [];
+  const refusals = turns.filter(t => t.observations.some(o => o.startsWith("REFUSED") || o.startsWith("ESCALATED"))).length;
+  const factList = Array.isArray(log.facts) ? log.facts : [];
+  const proven = new Set(factList.map(f => f.item));
+  const facts = factList.map(f => `<div class="fact"><b>${esc(f.item)}</b><br>${esc(f.claim)}
+      <span class="muted">· ${esc(f.source)}</span><q>${esc(f.quote)}</q></div>`).join("") || '<p class="muted">No evidence recorded yet.</p>';
+  const report = log.report ? `<div class="card"><h2>Final report</h2>
+      <p><b>Root cause:</b> ${esc(log.report.root_cause)}</p><p><b>Fix:</b> ${esc(log.report.fix)}</p>
+      ${(log.report.findings || []).map(f => `<div class="fact">${esc(f.claim)} <span class="muted">· ${esc(f.source)}</span><q>${esc(f.quote)}</q></div>`).join("")}</div>` : "";
+  const timeline = turns.map(t => {
+    const obs = t.observations.join("\n\n");
+    const cls = /^(REFUSED|ESCALATED)/m.test(obs) ? "refused" : (/VERIFICATION: PASS/.test(obs) ? "verified" : "");
+    const flag = cls === "refused" ? '<span class="badge bad">refused</span>' : (cls === "verified" ? '<span class="badge ok">verified</span>' : "");
+    return `<div class="turn ${cls}"><header><b>Turn ${t.turn}</b><span class="chip">${esc(t.action)}</span>${flag}</header>
+      <div class="thought">${esc(t.thought)}</div>
+      ${obs ? `<details ${cls ? "open" : ""}><summary>What the agent observed</summary><pre>${esc(obs)}</pre></details>` : ""}</div>`;
+  }).reverse().join("");
+  $("#app").innerHTML = `
+  <section>
+    <div class="card"><h2>Assignment</h2><p>${esc(log.task)}</p><p class="muted">Started ${esc(log.started)}</p></div>
+    <div class="card"><h2>Status</h2><p>${resultBadge(log)}</p>
+      <div class="stats">
+        <div class="stat"><b>${turns.length} / ${log.max_turns ?? 20}</b><small>turns</small></div>
+        <div class="stat"><b>${(log.tokens || 0).toLocaleString()}</b><small>tokens</small></div>
+        <div class="stat"><b>${factList.length}</b><small>facts recorded</small></div>
+        <div class="stat"><b>${refusals}</b><small>refusals caught</small></div>
+      </div>
+      <p class="muted">Agent: ${esc(log.driver)}<br>Reviewer: ${esc(log.reviewer)}</p></div>
+    <div class="card"><h2>Checklist</h2>${(log.checklist || []).length ? `<ul>${log.checklist.map(i =>
+      `<li>${proven.has(i) ? "✅" : "⬜"} ${esc(i)}</li>`).join("")}</ul>` : '<p class="muted">Not set yet.</p>'}</div>
+    <div class="card"><h2>Evidence</h2>${facts}</div>
+  </section>
+  <section>${report}<div class="card"><h2>Timeline (newest first)</h2>${timeline || '<p class="muted">Waiting for the first turn…</p>'}</div></section>`;
+}
+
+async function tick() {
+  try {
+    const name = await listRuns();
+    if (!name) return;
+    const log = await (await fetch(`/api/runs/${name}`)).json();
+    if (JSON.stringify(log) !== current) { current = JSON.stringify(log); render(log); }
+  } catch (e) { /* server restarting or file mid-write; try again next tick */ }
+}
+$("#runs").addEventListener("change", () => { followLatest = $("#runs").selectedIndex === 0; current = null; tick(); });
+$("#runform").addEventListener("submit", async e => {
+  e.preventDefault();
+  const task = $("#task").value.trim(), max_turns = parseInt($("#maxturns").value, 10);
+  if (!task || !(max_turns >= 1)) return;
+  const res = await fetch("/api/run", {method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({task, max_turns})});
+  if (!res.ok) { alert("Could not start the agent."); return; }
+  followLatest = true; current = null; $("#task").value = "";
+});
+tick(); setInterval(tick, 1500);
+</script>
+</body>
+</html>
